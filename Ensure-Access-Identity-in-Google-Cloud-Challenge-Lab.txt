@@ -1,0 +1,81 @@
+Task 1: Create a custom security role.
+
+Execute this command on cloud shell to create yaml file for custom role:
+
+
+
+nano role-definition.yaml
+
+
+
+Replace the below content in the file:
+
+
+
+title: "orca_storage_update"
+
+description: "Permissions"
+
+stage: "ALPHA"
+
+includedPermissions:
+
+- storage.buckets.get
+
+- storage.objects.get
+
+- storage.objects.list
+
+- storage.objects.update
+
+- storage.objects.create
+
+
+
+
+
+Ctrl+x
+
+Y
+
+Enter
+
+
+
+
+
+gcloud iam roles create orca_storage_update --project $DEVSHELL_PROJECT_ID \
+
+--file role-definition.yaml
+
+
+
+
+
+###############################################################################################
+
+
+
+Task 2: Create a service account.
+
+
+
+
+
+commands for task2 & task3:
+
+
+
+gcloud iam service-accounts create orca-private-cluster-sa --display-name "my service account"
+
+
+
+gcloud alpha projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member serviceAccount:orca-private-cluster-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role "projects/<projectid>/roles/orca_storage_update"
+
+
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member serviceAccount:orca-private-cluster-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role “roles/monitoring.viewer”
+
+
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member serviceAccount:orca-private-cluster-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role “roles/logging.logWriter” 
