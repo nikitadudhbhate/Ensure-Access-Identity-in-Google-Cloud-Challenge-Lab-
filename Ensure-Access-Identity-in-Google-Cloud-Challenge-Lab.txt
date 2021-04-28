@@ -1,80 +1,57 @@
-GSP330 : Implement DevOps in Google Cloud: Challenge Lab :-
+GSP342 : Ensure Access & Identity in Google Cloud: Challenge Lab :-
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Task 1 : Create a custom security role :-
 
-gcloud config set compute/zone us-east1-b
+nano role-definition.yaml
 
-git clone https://source.developers.google.com/p/$DEVSHELL_PROJECT_ID/r/sample-app
+// Copy the below content to file :-
 
-gcloud container clusters get-credentials jenkins-cd
+title: "orca_storage_update"
+description: "Permissions"
+stage: "ALPHA"
+includedPermissions:
+- storage.buckets.get
+- storage.objects.get
+- storage.objects.list
+- storage.objects.update
+- storage.objects.create
 
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
+// Save by : ctrl + o -> enter -> ctrl + x
 
-helm repo add stable https://kubernetes-charts.storage.googleapis.com/  → this might not work… use the next line of code instead…
+gcloud iam roles create orca_storage_update --project $DEVSHELL_PROJECT_ID \
+--file role-definition.yaml
 
-helm repo add stable https://charts.helm.sh/stable
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-helm repo update
+Task 2 & 3 : Create a service account and Bind a custom security role to an account :-
 
-helm install cd stable/jenkins
+// Navigate to IAM & Admin -> Service Accounts -> CREATE SERVICE ACCOUNT.
 
-export POD_NAME=$(kubectl get pods --namespace default -l "app.kubernetes.io/component=jenkins-master" -l "app.kubernetes.io/instance=cd" -o jsonpath="{.items[0].metadata.name}")
-kubectl port-forward $POD_NAME 8080:8080 >> /dev/null &
-printf $(kubectl get secret cd-jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode);echo
+  Service account name : orca-private-cluster-sa , then click create and add roles.
+  Roles : orca_storage_update
+          Monitoring Viewer
+          Monitoring Metric Writer
+          Logs Writer
 
+// Click CONTINUE -> DONE
 
-cd sample-app
-kubectl create ns production
-kubectl apply -f k8s/production -n production
-kubectl apply -f k8s/canary -n production
-kubectl apply -f k8s/services -n production
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-kubectl get svc
-kubectl get service gceme-frontend -n production
+Task 4 : Create and configure a new Kubernetes Engine private cluster :-
 
+// Replace the project id :-
 
-##Branch Sources: Git
-            - Project Repository: https://source.developers.google.com/p/[PROJECT_ID]/r/sample-app
-            - Credentials: qwiklabs service account
+gcloud container clusters create orca-test-cluster --num-nodes 1 --master-ipv4-cidr=172.16.0.64/28 --network orca-build-vpc --subnetwork orca-build-subnet --enable-master-authorized-networks  --master-authorized-networks 192.168.10.2/32 --enable-ip-alias --enable-private-nodes --enable-private-endpoint --service-account orca-private-cluster-sa@<Project ID>.iam.gserviceaccount.com --zone us-east1-b
 
-click Periodically if not...... 1 min
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-git init
-git config credential.helper gcloud.sh
-git remote add origin https://source.developers.google.com/p/$DEVSHELL_PROJECT_ID/r/sample-app
-git config --global user.email "<user email>"
-git config --global user.name "<user name>"
-git add .
-git commit -m "initial commit"
-git push origin master
+Task 5 : Deploy an application to a private Kubernetes Engine cluster :-
+// SSH to orca-jumphost VM instance
 
+// Replace the project id :-
 
-#save
+gcloud container clusters get-credentials orca-test-cluster --internal-ip --zone us-east1-b --project <Project ID>
 
-
-git checkout -b new-feature
-
-git add Jenkinsfile html.go main.go
-git commit -m "Version 2.0.0"
-git push origin new-feature
-
-curl http://localhost:8001/api/v1/namespaces/new-feature/services/gceme-frontend:80/proxy/version
-kubectl get service gceme-frontend -n production  
-git checkout -b canary
-git push origin canary
-export FRONTEND_SERVICE_IP=$(kubectl get -o \
-jsonpath="{.status.loadBalancer.ingress[0].ip}" --namespace=production services gceme-frontend)
-git checkout master
-git push origin master
-
-
-export FRONTEND_SERVICE_IP=$(kubectl get -o \
-jsonpath="{.status.loadBalancer.ingress[0].ip}" --namespace=production services gceme-frontend)
-while true; do curl http://$FRONTEND_SERVICE_IP/version; sleep 1; done
-
-kubectl get service gceme-frontend -n production
-
-git merge canary
-git push origin master
-export FRONTEND_SERVICE_IP=$(kubectl get -o \
-jsonpath="{.status.loadBalancer.ingress[0].ip}" --namespace=production services gceme-frontend)
+kubectl create deployment hello-server --image=gcr.io/google-samples/hello-app:1.0
+© 2021 GitHub, Inc.
